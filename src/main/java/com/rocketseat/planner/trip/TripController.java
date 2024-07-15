@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -49,5 +50,37 @@ public class TripController {
   public ResponseEntity<List<Trip>> getAllTrips() {
     List<Trip> trips = repository.findAll();
     return ResponseEntity.ok(trips);
+  }
+
+  @PutMapping("/{tripId}")
+  public ResponseEntity<Trip> updateTrip(@PathVariable UUID tripId, @RequestBody Trip tripDetails) {
+    return repository.findById(tripId)
+        .map(existingTrip -> {
+          Trip updateTrip = existingTrip.toBuilder()
+              .ownerName(tripDetails.getOwnerName())
+              .ownerEmail(tripDetails.getOwnerEmail())
+              .destination(tripDetails.getDestination())
+              .isConfirmed(tripDetails.isConfirmed())
+              .startsAt(tripDetails.getStartsAt())
+              .endsAt(tripDetails.getEndsAt())
+              .build();
+          repository.save(updateTrip);
+          return ResponseEntity.ok(updateTrip);
+        })
+        .orElseGet(() -> ResponseEntity.notFound().build());
+    // if (trip.isPresent()) {
+    // Trip tripExisting = trip.get();
+    // tripExisting.setOwnerName(tripDetails.getOwnerName());
+    // tripExisting.setOwnerEmail(tripDetails.getOwnerEmail());
+    // tripExisting.setDestination(tripDetails.getDestination());
+    // tripExisting.setConfirmed(tripDetails.isConfirmed());
+    // tripExisting.setStartsAt(tripDetails.getStartsAt());
+    // tripExisting.setEndsAt(tripDetails.getEndsAt());
+
+    // repository.save(tripExisting);
+    // return ResponseEntity.ok(tripExisting);
+    // } else {
+    // return ResponseEntity.notFound().build();
+    // }
   }
 }
