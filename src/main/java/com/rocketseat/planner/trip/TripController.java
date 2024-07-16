@@ -6,6 +6,8 @@ import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.rocketseat.planner.participants.ParticipantService;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/trips")
@@ -26,12 +30,14 @@ public class TripController {
   private TripRepository repository;
 
   @PostMapping
-  public ResponseEntity<TripCreateResponse> createTrip(@RequestBody TripRequestPayload payload) {
+  public ResponseEntity<?> createTrip(@Valid @RequestBody TripRequestPayloadDto payload, BindingResult result) {
+    if (result.hasErrors()) {
+      return ResponseEntity.badRequest().body(getErrorResponse(result));
+    }
+
     Trip newTrip = new Trip(payload);
-
     this.repository.save(newTrip);
-
-    this.participantService.registerParticipantsToEvent(payload.emails_to_invite(), newTrip.getId());
+    this.participantService.registerParticipantsToEvent(payload.emailsToInvite(), newTrip.getId());
 
     return ResponseEntity.ok(new TripCreateResponse(newTrip.getId()));
   }
@@ -53,34 +59,36 @@ public class TripController {
   }
 
   @PutMapping("/{tripId}")
-  public ResponseEntity<Trip> updateTrip(@PathVariable UUID tripId, @RequestBody Trip tripDetails) {
-    return repository.findById(tripId)
-        .map(existingTrip -> {
-          Trip updateTrip = existingTrip.toBuilder()
-              .ownerName(tripDetails.getOwnerName())
-              .ownerEmail(tripDetails.getOwnerEmail())
-              .destination(tripDetails.getDestination())
-              .isConfirmed(tripDetails.isConfirmed())
-              .startsAt(tripDetails.getStartsAt())
-              .endsAt(tripDetails.getEndsAt())
-              .build();
-          repository.save(updateTrip);
-          return ResponseEntity.ok(updateTrip);
-        })
-        .orElseGet(() -> ResponseEntity.notFound().build());
-    // if (trip.isPresent()) {
-    // Trip tripExisting = trip.get();
-    // tripExisting.setOwnerName(tripDetails.getOwnerName());
-    // tripExisting.setOwnerEmail(tripDetails.getOwnerEmail());
-    // tripExisting.setDestination(tripDetails.getDestination());
-    // tripExisting.setConfirmed(tripDetails.isConfirmed());
-    // tripExisting.setStartsAt(tripDetails.getStartsAt());
-    // tripExisting.setEndsAt(tripDetails.getEndsAt());
+  public ResponseEntity<?> updateTrip(@PathVariable UUID tripId, @Valid @RequestBody TripRequestPayloadDto payload,
+      BindingResult result) {
+    if (result.hasErrors()) {
+      return ResponseEntity.badRequest().body(getErrorResponse(result));
+    }
 
-    // repository.save(tripExisting);
-    // return ResponseEntity.ok(tripExisting);
-    // } else {
-    // return ResponseEntity.notFound().build();
-    // }
+    Optional<Trip> optionalTrip = repository.findById(tripId);
+    if (optionalTrip.isEmpty()) {
+      return ResponseEntity.notFound().build();
+    }
+
+    Trip existingTrip = optionalTrip.get();
+    Trip updatedTrip = existingTrip.toBuilder()
+        .ownerName(payload.getOwnerName())
+        .ownerEmail(payload.getOwnerEmail())
+        .destination(payload.getDestination())
+        .startsAt(existingTrip.getStartsAt())
+        .endsAt(existingTrip.getEndsAt())
+        .build();
+
+    repository.save(updatedTrip);
+    return ResponseEntity.ok(updatedTrip);
+  }
+
+  // TripErrorResponse.java para padronizar mensagens de erro
+  private TripErrorResponse getErrorResponse(BindingResult result) {
+    StringBuilder errorMessage = new StringBuilder("Validação de erros: ");
+    for (FieldError error : result.getFieldErrors()) {
+      errorMessage.append(error.getField()).append(" - ").append(error.getDefaultMessage()).append("; ");
+    }
+    return new TripErrorResponse(errorMessage.toString());
   }
 }

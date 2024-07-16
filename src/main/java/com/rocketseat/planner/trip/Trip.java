@@ -45,12 +45,12 @@ public class Trip {
   @Column(name = "ends_at", nullable = false)
   private LocalDateTime endsAt;
 
-  public Trip(TripRequestPayload data) {
-    this.destination = data.destination();
+  public Trip(TripRequestPayloadDto data) {
+    this.destination = data.getDestination();
     this.isConfirmed = false;
-    this.ownerName = data.owner_name();
-    this.ownerEmail = data.owner_email();
-    this.startsAt = LocalDateTime.parse(data.starts_at(), DateTimeFormatter.ISO_DATE_TIME);
-    this.endsAt = LocalDateTime.parse(data.ends_at(), DateTimeFormatter.ISO_DATE_TIME);
+    this.ownerName = data.getOwnerName();
+    this.ownerEmail = data.getOwnerEmail();
+    this.startsAt = LocalDateTime.parse(data.getStartsAt(), DateTimeFormatter.ISO_DATE_TIME);
+    this.endsAt = LocalDateTime.parse(data.getEndsAt(), DateTimeFormatter.ISO_DATE_TIME);
   }
 }
