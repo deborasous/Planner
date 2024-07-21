@@ -1,10 +1,10 @@
 package com.rocketseat.planner.trip;
 
-public class TripErrorResponse {
+public class TripResponse {
 
   private String message;
 
-  public TripErrorResponse(String message) {
+  public TripResponse(String message) {
     this.message = message;
   }
 

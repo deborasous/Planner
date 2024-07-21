@@ -42,9 +42,9 @@ public class TripController {
     return ResponseEntity.ok(new TripCreateResponse(newTrip.getId()));
   }
 
-  @GetMapping("/{id}")
-  public ResponseEntity<Trip> getTripById(@PathVariable UUID id) {
-    Optional<Trip> trip = repository.findById(id);
+  @GetMapping("/{tripId}")
+  public ResponseEntity<Trip> getTripById(@PathVariable UUID tripId) {
+    Optional<Trip> trip = this.repository.findById(tripId);
     if (trip.isPresent()) {
       return ResponseEntity.ok(trip.get());
     } else {
@@ -54,7 +54,7 @@ public class TripController {
 
   @GetMapping
   public ResponseEntity<List<Trip>> getAllTrips() {
-    List<Trip> trips = repository.findAll();
+    List<Trip> trips = this.repository.findAll();
     return ResponseEntity.ok(trips);
   }
 
@@ -65,7 +65,7 @@ public class TripController {
       return ResponseEntity.badRequest().body(getErrorResponse(result));
     }
 
-    Optional<Trip> optionalTrip = repository.findById(tripId);
+    Optional<Trip> optionalTrip = this.repository.findById(tripId);
     if (optionalTrip.isEmpty()) {
       return ResponseEntity.notFound().build();
     }
@@ -83,12 +83,29 @@ public class TripController {
     return ResponseEntity.ok(updatedTrip);
   }
 
-  // TripErrorResponse.java para padronizar mensagens de erro
-  private TripErrorResponse getErrorResponse(BindingResult result) {
+  @GetMapping("/{tripId}/confirm")
+  public ResponseEntity<Trip> confirmTrip(@PathVariable UUID tripId) {
+    Optional<Trip> trip = this.repository.findById(tripId);
+
+    if (trip.isPresent()) {
+      Trip rawTrip = trip.get();
+      rawTrip.setConfirmed(true);
+
+      this.repository.save(rawTrip);
+      this.participantService.triggerConfirmEmailToParticipant(tripId);
+
+      return ResponseEntity.ok(rawTrip);
+    }
+
+    return ResponseEntity.notFound().build();
+  }
+  
+  // TripResponse.java para padronizar mensagens de erro
+  private TripResponse getErrorResponse(BindingResult result) {
     StringBuilder errorMessage = new StringBuilder("Validação de erros: ");
     for (FieldError error : result.getFieldErrors()) {
       errorMessage.append(error.getField()).append(" - ").append(error.getDefaultMessage()).append("; ");
     }
-    return new TripErrorResponse(errorMessage.toString());
+    return new TripResponse(errorMessage.toString());
   }
 }

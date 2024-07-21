@@ -7,9 +7,11 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class ParticipantService {
-  public void registerParticipantsToEvent(List<String> participantsToInvite, UUID tripId){
+  public void registerParticipantsToEvent(List<String> participantToInvite, UUID tripId) {
 
   }
 
-  public void triggerConfirmationToParticipants(UUID tripId){}
+  public void triggerConfirmEmailToParticipant(UUID tripId) {
+
+  }
 }

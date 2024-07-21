@@ -53,4 +53,9 @@ public class Trip {
     this.startsAt = LocalDateTime.parse(data.getStartsAt(), DateTimeFormatter.ISO_DATE_TIME);
     this.endsAt = LocalDateTime.parse(data.getEndsAt(), DateTimeFormatter.ISO_DATE_TIME);
   }
+
+  // metodo para confirmar particiapação na viagem
+  public void confirmParticipation() {
+    this.isConfirmed = true;
+  }
 }
