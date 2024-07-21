@@ -11,6 +11,7 @@ public class ParticipantService {
 
   }
 
+  // recupera todos os participantes de uma viagem e envia os emails para eles 
   public void triggerConfirmEmailToParticipant(UUID tripId) {
 
   }
