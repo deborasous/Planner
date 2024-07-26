@@ -5,8 +5,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,6 +20,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.rocketseat.planner.common.ApiResponse;
 import com.rocketseat.planner.common.EmailValidator;
 import com.rocketseat.planner.common.ValidationUtil;
+import com.rocketseat.planner.participants.Participant;
+import com.rocketseat.planner.participants.ParticipantPayloadDto;
 import com.rocketseat.planner.participants.ParticipantRepository;
 import com.rocketseat.planner.participants.ParticipantService;
 
@@ -122,5 +126,41 @@ public class TripController {
     }
 
     return ResponseEntity.notFound().build();
+  }
+
+  @DeleteMapping("/{tripId}")
+  public ResponseEntity<?> deleteTrip(@PathVariable UUID tripId) {
+    Optional<Trip> tripOptional = this.repository.findById(tripId);
+    if (tripOptional.isEmpty()) {
+      return ResponseEntity.notFound().build();
+    }
+
+    List<Participant> participants = this.participantRepository.findByTripId(tripId);
+
+    List<ParticipantPayloadDto> confirmedParticipants = participants.stream()
+        .filter(Participant::isConfirmed)
+        .map(participant -> new ParticipantPayloadDto(
+            participant.getEmail(),
+            participant.getName(),
+            participant.isConfirmed()))
+        .toList();
+
+    boolean hasUnconfirmedParticipants = !confirmedParticipants.isEmpty();
+
+    if (!hasUnconfirmedParticipants) {
+      this.participantRepository.deleteAll(participants);
+
+      this.repository.deleteById(tripId);
+
+      ApiResponse response = new ApiResponse("Viagem excluída com sucesso!", confirmedParticipants);
+
+      return ResponseEntity.ok(response);
+    } else {
+      ApiResponse response = new ApiResponse(
+          "A viagem não pode ser excluída porque já tem participante confirmado.", confirmedParticipants);
+
+      return ResponseEntity.status(HttpStatus.FORBIDDEN)
+          .body(response);
+    }
   }
 }
