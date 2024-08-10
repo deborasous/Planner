@@ -15,10 +15,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.rocketseat.planner.common.ApiResponse;
-import com.rocketseat.planner.common.EmailValidator;
+import com.rocketseat.planner.common.ValidationService;
 import com.rocketseat.planner.common.ValidationUtil;
 import com.rocketseat.planner.participants.Participant;
 import com.rocketseat.planner.participants.ParticipantPayloadDto;
@@ -47,9 +48,7 @@ public class TripController {
     }
 
     try {
-      for (String email : payload.getEmailsToInvite()) {
-        EmailValidator.validateEmail(email);
-      }
+      ValidationService.emailValidators(payload.getEmailsToInvite());
     } catch (ValidationException e) {
       return ResponseEntity.badRequest().body(new ApiResponse(e.getMessage()));
     }
@@ -64,68 +63,81 @@ public class TripController {
         new TripCreateResponse(newTrip.getId(), newTrip.getOwnerName(), newTrip.getOwnerEmail(), participantEmails));
   }
 
+  // retorna os dados da viagem quando passado o id da viagem como parametro da
+  // url
   @GetMapping("/{tripId}")
-  public ResponseEntity<Trip> getTripById(@PathVariable UUID tripId) {
-    Optional<Trip> trip = this.repository.findById(tripId);
-    if (trip.isPresent()) {
-      return ResponseEntity.ok(trip.get());
+  public ResponseEntity<?> getTripById(@PathVariable UUID tripId) {
+    Optional<Trip> tripOptional = this.repository.findById(tripId);
+
+    if (tripOptional.isPresent()) {
+      return ResponseEntity.ok(tripOptional.get());
     } else {
-      return ResponseEntity.notFound().build();
+      ApiResponse errorResponse = new ApiResponse("Viagem não encontrada para o ID: " + tripId);
+      return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
     }
   }
 
+  // retorna todas as trips de um owner a partir do email
   @GetMapping
-  public ResponseEntity<List<Trip>> getAllTrips() {
-    List<Trip> trips = this.repository.findAll();
+  public ResponseEntity<?> getAllTrips(@RequestParam(required = false) String ownerEmail) {
+    List<Trip> trips;
+
+    if (ownerEmail != null) {
+      trips = this.repository.findByOwnerEmail(ownerEmail);
+      if (trips.isEmpty()) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ApiResponse("Verifique o e-mail " + ownerEmail + " e tente novamente"));
+      }
+    } else {
+      trips = this.repository.findAll();
+    }
+
     return ResponseEntity.ok(trips);
   }
 
+  // Altera os dados da viagem
   @PutMapping("/{tripId}")
   public ResponseEntity<?> updateTrip(@PathVariable UUID tripId, @Valid @RequestBody TripRequestPayloadDto payload,
       BindingResult result) {
+
     if (result.hasErrors()) {
       return ResponseEntity.badRequest().body(ValidationUtil.getErrorResponse(result));
     }
 
     try {
-      EmailValidator.validateEmail(payload.getOwnerEmail());
+      ValidationService.emailValidator(payload.getOwnerEmail());
     } catch (ValidationException e) {
       return ResponseEntity.badRequest().body(new ApiResponse(e.getMessage()));
     }
 
-    Optional<Trip> optionalTrip = this.repository.findById(tripId);
-    if (optionalTrip.isEmpty()) {
-      return ResponseEntity.notFound().build();
-    }
+    return this.repository.findById(tripId)
+        .<ResponseEntity<?>>map(existingTrip -> {
+          Trip updatedTrip = existingTrip.toBuilder()
+              .ownerName(payload.getOwnerName())
+              .ownerEmail(payload.getOwnerEmail())
+              .destination(payload.getDestination())
+              .startsAt(existingTrip.getStartsAt())
+              .endsAt(existingTrip.getEndsAt())
+              .build();
 
-    Trip existingTrip = optionalTrip.get();
-    Trip updatedTrip = existingTrip.toBuilder()
-        .ownerName(payload.getOwnerName())
-        .ownerEmail(payload.getOwnerEmail())
-        .destination(payload.getDestination())
-        .startsAt(existingTrip.getStartsAt())
-        .endsAt(existingTrip.getEndsAt())
-        .build();
-
-    repository.save(updatedTrip);
-    return ResponseEntity.ok(updatedTrip);
+          this.repository.save(updatedTrip);
+          return ResponseEntity.ok(updatedTrip);
+        })
+        .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ApiResponse("Viagem não encontrada para o ID: " + tripId)));
   }
 
   @GetMapping("/{tripId}/confirm")
-  public ResponseEntity<Trip> confirmTrip(@PathVariable UUID tripId) {
-    Optional<Trip> trip = this.repository.findById(tripId);
-
-    if (trip.isPresent()) {
-      Trip rawTrip = trip.get();
-      rawTrip.setConfirmed(true);
-
-      this.repository.save(rawTrip);
+  public ResponseEntity<?> confirmTrip(@PathVariable UUID tripId) {
+    return this.repository.findById(tripId)
+    .<ResponseEntity<?>>map(trip->{
+      trip.setConfirmed(true);
+      this.repository.save(trip);
       this.participantService.triggerConfirmEmailToParticipant(tripId);
-
-      return ResponseEntity.ok(rawTrip);
-    }
-
-    return ResponseEntity.notFound().build();
+      return ResponseEntity.ok(trip);
+    })
+    .orElseGet(()->ResponseEntity.status(HttpStatus.NOT_FOUND)
+    .body(new ApiResponse("Viagem não encontrada para o ID: " + tripId)));
   }
 
   @DeleteMapping("/{tripId}")

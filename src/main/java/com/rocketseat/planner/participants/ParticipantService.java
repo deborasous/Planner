@@ -19,7 +19,7 @@ public class ParticipantService {
 
     List<Participant> participants = participantToInvite.stream()
         .map(email -> new Participant(email, trip))
-        .collect(Collectors.toList());
+        .toList();
 
     if (!participants.isEmpty()) {
       System.out.println("Participantes criados: " + participants);
