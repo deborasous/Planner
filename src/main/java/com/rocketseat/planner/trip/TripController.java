@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.rocketseat.planner.common.ApiResponse;
 import com.rocketseat.planner.common.ValidationUtil;
+import com.rocketseat.planner.participants.ParticipantPayloadDto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.ValidationException;
@@ -96,6 +97,16 @@ public class TripController {
       return ResponseEntity.ok(trip);
     } catch (TripNotFoundException e) {
       return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse(e.getMessage()));
+    }
+  }
+
+  @PostMapping("/{tripId}/invite")
+  public ResponseEntity<?> inviteParticipant(@PathVariable UUID tripId, @RequestBody ParticipantPayloadDto payload) {
+    try {
+      TripCreateResponse response = tripService.inviteParticipantToTrip(tripId, payload);
+      return ResponseEntity.ok(response);
+    } catch (ValidationException e) {
+      return ResponseEntity.badRequest().body(new ApiResponse(e.getMessage()));
     }
   }
 

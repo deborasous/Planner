@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import com.rocketseat.planner.common.ApiResponse;
 import com.rocketseat.planner.common.ValidationService;
 import com.rocketseat.planner.participants.Participant;
+import com.rocketseat.planner.participants.ParticipantCreateResponse;
 import com.rocketseat.planner.participants.ParticipantPayloadDto;
 import com.rocketseat.planner.participants.ParticipantRepository;
 import com.rocketseat.planner.participants.ParticipantService;
@@ -47,8 +48,15 @@ public class TripService {
     this.participantService.registerParticipantsToEvent(participantEmails, newTrip);
 
     // Retorno da resposta de criação
-    return new TripCreateResponse(newTrip.getId(), newTrip.getOwnerName(), newTrip.getOwnerEmail(),
-        newTrip.getDestination(), newTrip.getEndsAt(), newTrip.getEndsAt(), participantEmails);
+    return new TripCreateResponse(
+        newTrip.getId(),
+        newTrip.getOwnerName(),
+        newTrip.getOwnerEmail(),
+        newTrip.getDestination(),
+        newTrip.getEndsAt(),
+        newTrip.getEndsAt(),
+        participantEmails,
+        null);
   }
 
   public Trip findTripById(UUID tripId) throws TripNotFoundException {
@@ -103,9 +111,37 @@ public class TripService {
 
     repository.save(trip);
 
-    participantService.triggerConfirmEmailToParticipant(tripId);
+    triggerUpdateTrip(tripId);
 
     return trip;
+  }
+
+  public TripCreateResponse inviteParticipantToTrip(UUID tripId, ParticipantPayloadDto payload) {
+    Optional<Trip> optionalTrip = repository.findById(tripId);
+
+    if (optionalTrip.isPresent()) {
+      Trip rawTrip = optionalTrip.get();
+
+      ParticipantCreateResponse response = participantService.registerParticipantToEvent(payload.email(), rawTrip);
+
+      if (rawTrip.isConfirmed()) {
+        participantService.triggerConfirmEmailToParticipant(payload.email());
+      }
+
+      List<String> participantToInvite = participantService.getParticipantEmailsTripId(tripId);
+
+      return new TripCreateResponse(
+          rawTrip.getId(),
+          rawTrip.getOwnerName(),
+          rawTrip.getOwnerEmail(),
+          rawTrip.getDestination(),
+          rawTrip.getStartsAt(),
+          rawTrip.getEndsAt(),
+          participantToInvite,
+          response.getParticipantId());
+    }
+
+    throw new TripNotFoundException("Viagem não encontrada para o ID: " + tripId);
   }
 
   public ApiResponse deleteTrip(UUID tripId) {
@@ -119,9 +155,9 @@ public class TripService {
 
     List<ParticipantPayloadDto> confirmedParticipants = participants.stream().filter(Participant::isConfirmed)
         .map(participant -> new ParticipantPayloadDto(
-          participant.getName(), 
-          participant.getEmail(),
-          participant.isConfirmed()))
+            participant.getName(),
+            participant.getEmail(),
+            participant.isConfirmed()))
         .toList();
 
     boolean hasUnconfirmedParticipants = !confirmedParticipants.isEmpty();
@@ -131,8 +167,13 @@ public class TripService {
       repository.deleteById(tripId);
 
       return new ApiResponse("Viagem excluída com sucesso!", confirmedParticipants);
-    }else{
-      return new ApiResponse("A viagem não pode ser excluída porque já tem participante confirmado.", confirmedParticipants);
+    } else {
+      return new ApiResponse("A viagem não pode ser excluída porque já tem participante confirmado.",
+          confirmedParticipants);
     }
+  }
+
+  public void triggerUpdateTrip(UUID tripId) {
+
   }
 }
