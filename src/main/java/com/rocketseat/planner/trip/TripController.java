@@ -19,7 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.rocketseat.planner.common.ApiResponse;
 import com.rocketseat.planner.common.ValidationUtil;
+import com.rocketseat.planner.participants.Participant;
 import com.rocketseat.planner.participants.ParticipantPayloadDto;
+import com.rocketseat.planner.participants.ParticipantService;
 
 import jakarta.validation.Valid;
 import jakarta.validation.ValidationException;
@@ -28,11 +30,13 @@ import jakarta.validation.ValidationException;
 @RequestMapping("/trips")
 public class TripController {
   private final TripService tripService;
+  private final ParticipantService participantService;
 
   @Autowired
   public TripController(
-      TripService tripService) {
+      TripService tripService, ParticipantService participantService) {
     this.tripService = tripService;
+    this.participantService = participantService;
   }
 
   @PostMapping
@@ -106,6 +110,19 @@ public class TripController {
       TripCreateResponse response = tripService.inviteParticipantToTrip(tripId, payload);
       return ResponseEntity.ok(response);
     } catch (ValidationException e) {
+      return ResponseEntity.badRequest().body(new ApiResponse(e.getMessage()));
+    }
+  }
+
+  @GetMapping("/{tripId}/participants")
+  public ResponseEntity<?> getParticipantsByTripId(@PathVariable UUID tripId) {
+    try {
+      List<Participant> participants = tripService.getAllParticipantsFromEvent(tripId);
+   
+      return ResponseEntity.ok(participants);
+    } catch (TripNotFoundException e) {
+      return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiResponse(e.getMessage()));
+    } catch (Exception e) {
       return ResponseEntity.badRequest().body(new ApiResponse(e.getMessage()));
     }
   }

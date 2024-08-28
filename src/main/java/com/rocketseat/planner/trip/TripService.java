@@ -13,6 +13,7 @@ import com.rocketseat.planner.common.ApiResponse;
 import com.rocketseat.planner.common.ValidationService;
 import com.rocketseat.planner.participants.Participant;
 import com.rocketseat.planner.participants.ParticipantCreateResponse;
+import com.rocketseat.planner.participants.ParticipantNotFoundException;
 import com.rocketseat.planner.participants.ParticipantPayloadDto;
 import com.rocketseat.planner.participants.ParticipantRepository;
 import com.rocketseat.planner.participants.ParticipantService;
@@ -171,6 +172,20 @@ public class TripService {
       return new ApiResponse("A viagem não pode ser excluída porque já tem participante confirmado.",
           confirmedParticipants);
     }
+  }
+
+  public List<Participant> getAllParticipantsFromEvent(UUID tripId) {
+    @SuppressWarnings("unused")
+    Trip trip = repository.findById(tripId)
+        .orElseThrow(() -> new TripNotFoundException("Viagem não encontrada para o ID: " + tripId));
+
+    List<Participant> participants = participantRepository.findByTripId(tripId);
+
+    if (participants.isEmpty()) {
+      throw new ParticipantNotFoundException("Nenhum participante encontrado para a viagem com ID: " + tripId);
+    }
+
+    return participants;
   }
 
   public void triggerUpdateTrip(UUID tripId) {
